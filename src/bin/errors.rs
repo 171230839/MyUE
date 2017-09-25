@@ -9,12 +9,12 @@ error_chain! {
 
 
 impl RustUEError {
-      fn is_human(&self) -> bool {
+    fn is_human(&self) -> bool {
         match &self.0 {
-             &RustUEErrorKind::Msg(_) => true,
-             
-             }
-      }
+            &RustUEErrorKind::Msg(_) => true,
+            _ => false,
+        }
+    }
 }
 
 pub type RueResult = Result<(), RueError>;
@@ -23,12 +23,14 @@ pub type RueResult = Result<(), RueError>;
 pub struct RueError {
     pub error: Option<RustUEError>,
     pub unknown: bool,
-    pub exit_code: i32
+    pub exit_code: i32,
 }
 
 impl Error for RueError {
     fn description(&self) -> &str {
-        self.error.as_ref().map(|e| e.description())
+        self.error
+            .as_ref()
+            .map(|e| e.description())
             .unwrap_or("unknown Rue error")
     }
 
@@ -50,11 +52,19 @@ impl fmt::Display for RueError {
 impl RueError {
     pub fn new(error: RustUEError, code: i32) -> RueError {
         let human = &error.is_human();
-        RueError { error: Some(error), exit_code: code, unknown: !human }
+        RueError {
+            error: Some(error),
+            exit_code: code,
+            unknown: !human,
+        }
     }
 
     pub fn code(code: i32) -> RueError {
-        RueError { error: None, exit_code: code, unknown: false }
+        RueError {
+            error: None,
+            exit_code: code,
+            unknown: false,
+        }
     }
 }
 
@@ -63,4 +73,3 @@ impl From<RustUEError> for RueError {
         RueError::new(err, 101)
     }
 }
-

@@ -9,12 +9,12 @@ pub fn main(){
         None => {}
     }
     if env_log.is_empty(){
-        env_log.push_str("trace");
+        env_log.push_str("info");
     }
 
    
 
-    println!("cargo:rustc-env=RUST_LOG={}", env_log);
-    println!("cargo:rustc-cfg=foo");
-    println!("cargo:rustc-cfg=foo=\"too\"");
+  //  println!("cargo:rustc-env=RUST_LOG={}", env_log);
+  //  println!("cargo:rustc-cfg=WITH_EDITOR");
+   // println!("cargo:rustc-cfg=WITH_TEST");
 }
