@@ -17,17 +17,19 @@ path = "src/rustue.rs"
 env_logger="0.4"
 log = "0.3"
 error-chain = "0.11"
-docopt = "0.8.1"
+
 serde = "1.0"
 serde_derive = "1.0"
 lazy_static = "0.2"
+bitflags = "1.0"
+chrono = "0.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = "0.2"
+kernel32-sys = "0.2"
 shell32-sys = "0.1"
 gdi32-sys = "0.1"
 user32-sys = "~0.1.2"
-kernel32-sys = "0.2"
 dwmapi-sys = "0.1"
 
 [target.'cfg(target_os = "android")'.dependencies.android_glue]

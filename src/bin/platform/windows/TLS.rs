@@ -1,5 +1,6 @@
 use kernel32;
 use std::os::raw::c_void;
+use winapi::winnt::HANDLE;
 
 pub struct FPlatformTLS{
 
@@ -14,6 +15,12 @@ impl FPlatformTLS{
     pub fn GetCurrentThreadId() ->u32 {
         unsafe{
         kernel32::GetCurrentThreadId()
+        }
+    }
+
+    pub fn GetCurrentThread() -> HANDLE{
+        unsafe{
+            kernel32::GetCurrentThread()
         }
     }
 

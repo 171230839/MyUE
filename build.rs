@@ -12,7 +12,7 @@ pub fn main(){
         env_log.push_str("info");
     }
 
-   
+   println!("cargo:rustc-env=RUST_BACKTRACE=1");
 
   //  println!("cargo:rustc-env=RUST_LOG={}", env_log);
   //  println!("cargo:rustc-cfg=WITH_EDITOR");

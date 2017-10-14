@@ -10,15 +10,26 @@ use std::ptr;
 
 
 pub mod misc;
+pub use self::misc::*;
 //pub mod criticalSection;
 pub mod TLS;
+pub use self::TLS::*;
 pub mod outputDevices;
+pub use self::outputDevices::*;
 // mod outputDeviceEventLog;
 // mod outputDeviceWindowsError;
 // mod outputDeviceConsole;
 // mod feedbackContextWindows;
 // mod outputDeviceFile;
 pub mod properties;
+pub use self::properties::*;
+pub mod process;
+pub use self::process::*;
+pub mod runnableThread;
+pub use self::runnableThread::*;
+pub mod event;
+pub use self::event::*;
+
 
 
 fn ReleaseNameMutex(mut nameMutex: winapi::HANDLE) {
@@ -42,7 +53,7 @@ fn makeNameMutex(flags: &Flags) -> (bool, winapi::HANDLE) {
        
         if (nameMutex != ptr::null_mut()) &&
             (kernel32::GetLastError() != winerror::ERROR_ALREADY_EXISTS) &&
-            (!flags.flag_neverfirst)
+            (!flags.bFlags.neverfirst)
         {
             bIsFirstInstance = true;
             println!("first instance");
@@ -73,7 +84,7 @@ pub fn osinit(flags: &Flags) ->OSResultGuard {
     let (GIsFirstInstance, nameMutex) = makeNameMutex(flags);
 
 
-    misc::SetGracefulTerminationHandler();
+    FPlatformMisc::SetGracefulTerminationHandler();
     // let name = String::from("RustUnrealEngine4");
     // let mutex = createMutexForName(name);
     // match mutex.try_lock() {

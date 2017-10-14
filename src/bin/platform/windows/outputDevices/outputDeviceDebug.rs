@@ -1,5 +1,6 @@
 use outputdevice::FOutputDevice;
-use logger::{Category, ELogVerbosity};
+use logger::{ELogVerbosity};
+
 pub struct FOutputDeviceDebug{
     name: String,
  
@@ -20,8 +21,8 @@ impl FOutputDevice for FOutputDeviceDebug{
     fn CanBeUsedOnAnyThread(&self) -> bool{
         true
     }
-     fn Serialize(&self, category: &Category, level: &ELogVerbosity, data: &String, time: &u64){
-        println!("1111{:?}: {}", category, data);
+     fn Serialize(&self, category: &String, level: &ELogVerbosity, data: &String, time: &u64){
+        println!("{:?}:{:?}: {}", category, level, data);
     }
      fn getDeviceName(&self) -> String{
         self.name.clone()

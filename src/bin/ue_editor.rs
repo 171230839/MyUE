@@ -8,9 +8,10 @@
 #![feature(i128_type)]
 #![feature(i128)]
 #![feature(raw)]
+//#![windows_subsystem = "windows"]
+#![feature(type_ascription)]
 
 extern crate rustue;
-extern crate docopt;
 
 #[macro_use] 
 extern crate error_chain;
@@ -21,36 +22,57 @@ extern crate error_chain;
 //use log::{LogLevelFilter,LogRecord, LogLevel};
 #[macro_use] extern crate serde_derive;
 #[macro_use] extern crate lazy_static;
+#[macro_use] extern crate bitflags;
+
 //use log::LogLevel::*;
 
 #[cfg(target_os = "windows")]
 extern crate winapi;
 #[cfg(target_os = "windows")]
 extern crate kernel32;
-#[cfg(target_os = "windows")]
-extern crate shell32;
-#[cfg(target_os = "windows")]
-extern crate gdi32;
-#[cfg(target_os = "windows")]
-extern crate user32;
-#[cfg(target_os = "windows")]
-extern crate dwmapi;
+// #[cfg(target_os = "windows")]
+// extern crate shell32;
+// #[cfg(target_os = "windows")]
+// extern crate gdi32;
+// #[cfg(target_os = "windows")]
+// extern crate user32;
+// #[cfg(target_os = "windows")]
+// extern crate dwmapi;
+extern crate chrono;
 
+#[macro_use] mod logger;
+use logger::{ue_log, ELogVerbosity};
 pub mod errors;
 pub mod platform;
 pub mod eventloop;
 //pub mod scopeLock;
 //#[macro_use] pub mod logger;
 pub mod outputdevice;
-mod logger;
 
 
+mod outputDeviceHelper;
+mod app;
+use app::FApp;
+mod path;
+mod projectManager;
 
+mod projectDescriptor;
+use projectDescriptor::FProjectDesriptor;
+
+mod platformAffinity;
+
+mod taskGraph;
+//mod runnableThread;
+
+mod threadManager;
+
+pub mod HAL;
+pub use self::HAL::*;
 
 use std::sync::Mutex;
 pub use errors::*;
 use std::env;
-use docopt::Docopt;
+
 use std::error::Error;
 use std::io::Write;
 use std::ffi::OsString;
@@ -63,12 +85,10 @@ use platform::misc;
 use eventloop::FEngineLoop;
 use std::fmt;
 use std::time::SystemTime;
-use platform::outputDevices::FOutputDevices;
+use platform::FOutputDevices;
 use std::ffi::CString;
-use logger::Category::*;
-use logger::ELogVerbosity::*;
-use logger::UE_LOG;
 
+use std::path::Path;
 
 
 pub fn IsDebugMode() -> bool{
@@ -80,101 +100,7 @@ pub fn IsDebugMode() -> bool{
 }
 
 
-
-#[derive(Deserialize, Debug)]
-pub struct Flags{
-    flag_version: bool,
-    //flag_crashreports: bool,
-    flag_abslog : bool,
-    flag_allusers: bool,
-    flag_auto: bool,
-    flag_autocheckoutpackages: bool,
-    flag_blascompressionforsize: bool,
-    flag_buildmachine: bool,
-    flag_bulkimportingsounds: bool,
-    flag_neverfirst: bool,
-    flag_cmd: bool,
-    flag_bnoconsole: bool,
-}
-const USAGE: &'static str = "
-Rust Unreal Engine Editor 
-
-Usage:
-    ue_editor [options]
-
-Options: 
-    -h, --help          Display this message
-    --version       Print version info and exit
-    --abslog         like log but no file name check
-    --allusers    when choose INSTALLGE, add game for all users
-    --auto          
-    --autocheckoutpackages   
-    --automatedmapbuild 
-    --blascompressionforsize 
-    --buildmachine
-    --bulkimportingsounds
-    --check_native_class_sizes
-    --codermode
-    --compatscale
-    --conformdir
-    --cookfordemo
-    --d3ddebug 
-    --debug
-    --devcon
-    --dumpfileiostats
-    --dumpudksurvey
-    --fatascriptwarnings
-    --final_release
-    --fixedseed
-    --fixuptangents
-    --forcelogflush
-    --forcepvrtv
-    --forcesoundrecook
-    --genericbrowser
-    --includeutgamecontent
-    --installed
-    --installfw
-    --uninstallfw
-    --installge
-    --cultureforcooking
-    --lighmassdebug
-    --lighmassstats
-    --log
-    --logtimes
-    --noconform
-    --nocontentbrowser
-    --noinnerexception
-    --noloadstartuppackages
-    --nologtimes
-    --nomodautoload
-    --nopause
-    --nopauseonsuccess
-    --norc
-    --noverifygc
-    --nowrite
-    --outputhreads
-    --seekfreeloading
-    --seekfreepackagemap
-    --seekfreeloadingpcconsole
-    --seekfreeloadingserver
-    --setthreadnames
-    --showmissingloc
-    --silent
-    --traceanimusage
-    --treatloadwarningsaserrors
-    --unattended
-    --uninstallge
-    --useunpublished
-    --vadebug
-    --verbose
-    --verifygc
-    --warningsaserrors
-    --neverfirst 
-    --cmd
-    --bnoconsole
-";
-
-fn editorInit(engineLoop : FEngineLoop) -> RueResult{
+fn editorInit(engineLoop : FEngineLoop) -> RustResult{
 
 
     Ok(())
@@ -183,40 +109,13 @@ fn editorInit(engineLoop : FEngineLoop) -> RueResult{
 fn editorExit(){
 
 }
-struct LL(());
-
-impl fmt::Debug for LL{
-        fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "LL")
-    }
-}
-impl LL{
-    pub fn get(&self) -> i32{
-        32
-    }
-    pub fn set(&self, t: i32){
-
-    }
-}
 
 
-fn execute(flags: Flags)->RueResult {
-    if flags.flag_version{
-        let version = rustue::version();
-        println!("{}", version);
-        return Ok(())
-    }
-
-    let t = LL(());
-    println!("t: {:?}", t);
-
-
+fn execute(flags: Flags)->RustResult {
 
    platform::osinit(&flags);
 
-    let outputDevices = platform::outputDevices::FOutputDevices::new();
-    outputDevices.SetupOutputDevices();
-    UE_LOG(LogInit, Log, "LogInit log");
+   
 
     let engineLoop = FEngineLoop::new();
 
@@ -233,9 +132,6 @@ fn execute(flags: Flags)->RueResult {
         engineLoop.init()?;
     }
  
-
-    println!("loop init天下无敌");
-
     let isRequestingExit :bool = false;
 
     // while (!isRequestingExit){
@@ -256,115 +152,62 @@ fn execute(flags: Flags)->RueResult {
     // }
 
 
-
-    
-
-
-
-
-    // if cfg!(debug_assertions){
-    //     println!("debug_assertions");
-    // }
-
-
     Ok(())
 }
 
-pub fn exit_with_error(err: RueError)
+pub fn exit_with_error(err: RustUEError)
 {
  // error!("exit_with_error; err={:?}", err);
-  let RueError{error, exit_code, unknown} = err;
-     let fatal = exit_code != 0;
-    if let Some(error) = error{
-        if fatal{
-                writeln!(&mut std::io::stderr(), "Error: {}", error);
-            } else if !unknown{
-                writeln!(&mut std::io::stderr(), "{}", error );
-        }
-    }
+//   let RueError{error, exit_code, unknown} = err;
+//      let fatal = exit_code != 0;
+//     if let Some(error) = error{
+//         if fatal{
+//                 writeln!(&mut std::io::stderr(), "Error: {}", error);
+//             } else if !unknown{
+//                 writeln!(&mut std::io::stderr(), "{}", error );
+//         }
+//     }
+    writeln!(&mut std::io::stderr(), "Error: {}", err  );
 }
 
 lazy_static!{
     pub static ref GStartTime :SystemTime = SystemTime::now();
 }
 
-
+ lazy_static!{
+     pub static ref GApp : Mutex<FApp> = Mutex::new(Default::default()); 
+ }
 
 fn main(){
-    let getTime = &GStartTime;
-
-//    if cfg!(debug_assertions){
-//        println!("dddddebg");
-//    }
-
-
-//    // println!("sys time: {:?}", GStartTime);
-//      let mut logBuilder = LogBuilder::new();
-//     logBuilder.filter(Some("ttt"), LogLevelFilter::Info);
-//     logBuilder.filter(None, LogLevelFilter::Trace);
-//     logBuilder.format(|record: &LogRecord|{
-//         let path = record.location().__module_path;
-//         let line = record.location().__line;
-//         if record.target() ==  path{
-//             format!("{:?} in {}__{:?} : {}", record.level(),  path, line, record.args())
-//         }else{
-//             format!("{}| {:?} in {}__{:?} :{}", record.target(), record.level(), path, line, record.args())
-//         }
-//      });
-
-//     logBuilder.init();
-
-//     logger::UE_LOG("2222", &LogLevel::Error, "2222 Error");
-    //UE_LOG!("22222", LogLevel::Error, "2222 error");
-
-    // debug!(target: "ttt", "ttt debug");
-    // info!(target: "ttt", "ttt info");
-    //  warn!(target: "ttt", "ttt warn exeee");
-
-
-    // trace!("trace!!!");
-    // debug!("debug!");
-    // info!("info!");
-    // warn!("warn!");
-    // error!("error!");
-
-    // if log_enabled!(LogLevel::Info) {
-    //     let x = 3 * 4; // expensive computation
-    //     info!("the answer was: {}", x);
-    // }
-
-  
-    
+   lazy_static::initialize(&GStartTime);
 
      let result = (|| {
-        let args: Vec<String> = try!(env::args_os()
+        let mut args: Vec<String> = try!(env::args_os()
         .map(|s| {
                  match s.into_string(){
                      Ok(s) => {
                        //  println!("s: {}", s);
-                         if s.starts_with("-") && (s.chars().nth(1).unwrap() != '-'){
-                            if  s=="-h" {
-                                 return Ok(s)
-                             }
-                             return Ok(s.replacen("-", "--", 1).to_lowercase())
-                         }
+                        //  if s.starts_with("-") && (s.chars().nth(1).unwrap() != '-'){
+                        //     if  s=="-h" {
+                        //          return Ok(s)
+                        //      }
+                        //      return Ok(s.replacen("-", "--", 1).to_lowercase())
+                        //  }
                         Ok(s.to_lowercase())},
                      Err(e) => Err(RustUEError::from(format!("invalid unicode in argument: {:?}", e))),
                  }                
             })
-            .collect());
-        println!("args: {:?}", args);
-        
+            .skip(1).collect());
+               
+        let outputDevices = platform::outputDevices::FOutputDevices::new();
+        outputDevices.SetupOutputDevices();
+      
 
-        let docopt = Docopt::new(USAGE).unwrap().argv(&args).help(true);
-        
-        let flags = docopt.deserialize().map_err(|e| {
-              let code = if e.fatal() {1} else {0};
-        RueError::new(e.to_string().into(), code)
-        })?;
+        let flags: Flags = parseCmdArgs(&mut args);
 
-        println!("flags :{:?}", flags);
-     
+        println!("flags : {:?}", flags);
+
+   
 
         execute(flags)
      })();
@@ -374,7 +217,170 @@ fn main(){
      }
 
     
-    thread::sleep(Duration::new(2,0));
+    thread::sleep(Duration::new(10,0));
     println!("ue_editor exit");
 }
+
+
+
+
+#[derive(Default, Debug)]
+pub struct Flags{
+    projectFilePath: String,
+    gamename : String,
+
+    pub bFlags: BFlags,
+    pub sFlags: MapFlags,
+}
+
+macro_rules! setBool {
+    ($this: ident, $flagName: ident, $($name: ident), + ) => {
+   $(
+            if $flagName == stringify!($name) {
+                     $this.$name = true;
+            }
+        )+
+    };
+}
+
+macro_rules! my_macro_for_bflags {
+     (struct $name:ident {
+        $($field_name:ident: $field_type:ty,)*
+    }) => {
+   #[derive(Default, Debug)]
+        pub struct $name {
+            $($field_name: $field_type,)*
+        }
+
+        impl $name {
+     
+            fn setValue(&mut self, str: &str) {
+                setBool!(self, str, $($field_name), *);
+          }
+
+        }
+    }
+}
+
+
+
+my_macro_for_bflags!{
+    struct BFlags{
+        
+        neverfirst: bool,
+    }
+}
+
+macro_rules! setString {
+    ($this: ident, $key: ident, $value: ident, $($name: ident), + ) => {
+    $(
+            if $key == stringify!($name) {
+                     $this.$name = String::from($value);
+            }
+        )+
+    };
+}
+
+macro_rules! my_macro_for_mapflags {
+     (struct $name:ident {
+        $($field_name:ident: $field_type:ty,)*
+    }) => {
+   #[derive(Default, Debug)]
+        pub struct $name {
+            $($field_name: $field_type,)*
+        }
+        impl $name {
+            fn setValue(&mut self, key: &str, value: &str) {
+                setString!(self, key, value, $($field_name), *);
+          }
+
+        }
+    }
+}
+
+my_macro_for_mapflags!{
+    struct MapFlags{
+        log : String,
+    }
+}
+
+
+
+fn parseCmdArgs( args: &mut Vec<String>) -> Flags{
+
+    
+   let mut flags:Flags = Default::default();
+    if args.len() > 0{
+         let token = args[0].clone();
+        if !token.starts_with("-") && !token.contains("="){
+           // let str = args[0].clone();
+              //    UE_LOG(LogInit, Error, &format!("parseCMDarg  str: {}", str));
+           
+            let path = Path::new(&token);
+            if path.exists(){
+                if path.is_absolute(){
+                    match path.extension() {
+                        Some(ext) => { 
+                            if ext.to_os_string().into_string().unwrap() == FProjectDesriptor::GetExtension(){
+                                flags.projectFilePath = token.clone();
+                                flags.gamename = path.file_stem().unwrap().to_os_string().into_string().unwrap();
+                                args.remove(0);
+                                
+                            GApp.lock().unwrap().SetGameName(&token);
+                              UE_LOG!(LogInit, Display, &format!("Running engine for game: {}", token));    
+                        
+                            }
+                        },
+                        None =>{},
+                    }
+                
+                } else if path.is_relative() {
+                    let gamename = path.file_stem().unwrap().to_os_string().into_string().unwrap();
+                    flags.gamename = gamename;
+                    let mut curdir = std::env::current_dir().unwrap().into_os_string().into_string().unwrap();
+                    curdir.push_str(&token);
+                    curdir.push_str(".");
+                    curdir.push_str(&FProjectDesriptor::GetExtension());
+                    flags.projectFilePath = curdir;
+                    args.remove(0);
+                     GApp.lock().unwrap().SetGameName(&token);
+                       
+                }
+            }else{
+                UE_LOG!(LogInit, Error, &format!("file path doesn't exists :{}", token));
+             //  Err(RustUEError::from(format!("first argument as path is not exist :{}", str)));
+            }
+         
+        }
+    }
+
+
+    if GApp.lock().unwrap().HasGameName(){
+        UE_LOG!(LogInit, Display, &format!("Running engine for game: {}", GApp.lock().unwrap().GetGameName()));
+    }else{
+         UE_LOG!(LogInit, Display, "Running engine without a game");
+    }
+
+    for arg in args.iter(){
+        println!("arg : {}", arg);
+        if arg.starts_with("-") && !arg.contains("="){
+            let mut s :String = arg.clone();
+            //let mut s = String::from(temp);
+            s.remove(0);
+            flags.bFlags.setValue(&s);
+
+        } else if arg.contains("="){
+            let v : Vec<&str> = arg.split("=").collect();
+            if v.len() == 2{
+                flags.sFlags.setValue(v[0], v[1]);
+            }else{
+                UE_LOG!(LogInit, Warning, "cmd arg format error " );
+            }
+       
+        }
+    }
+
+    flags
+}
+
 

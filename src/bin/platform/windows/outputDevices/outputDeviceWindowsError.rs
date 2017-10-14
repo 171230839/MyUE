@@ -1,7 +1,7 @@
 
 
 use outputdevice::FOutputDevice;
-use logger::{Category, ELogVerbosity};
+use logger::{ELogVerbosity};
 pub struct FOutputDeviceWindowsError{
     name: String,
 }
@@ -23,7 +23,7 @@ impl FOutputDevice for FOutputDeviceWindowsError{
     fn CanBeUsedOnAnyThread(&self) -> bool{
         true
     }
-  fn Serialize(&self, category: &Category, level: &ELogVerbosity, data: &String, time: &u64){
+  fn Serialize(&mut self, category: &String, level: &ELogVerbosity, data: &String, time: &u64){
         
     }
      fn getDeviceName(&self) -> String{

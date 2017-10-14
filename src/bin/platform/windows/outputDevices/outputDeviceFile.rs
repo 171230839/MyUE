@@ -1,6 +1,6 @@
 
 use outputdevice::FOutputDevice;
-use logger::{Category, ELogVerbosity};
+use logger::{ ELogVerbosity};
 
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ impl FOutputDevice for FOutputDeviceFile {
     fn CanBeUsedOnAnyThread(&self) -> bool {
         true
     }
-    fn Serialize(&self, category: &Category, level: &ELogVerbosity, data: &String, time: &u64) {}
+    fn Serialize(&self, category: &String, level: &ELogVerbosity, data: &String, time: &u64) {}
 
     fn getDeviceName(&self) -> String{
         self.name.clone()
