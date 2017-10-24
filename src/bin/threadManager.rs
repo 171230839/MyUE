@@ -1,9 +1,7 @@
 
 use std::collections::HashMap;
 use platform::FPlatformRunnableThread;
-use std::sync::{Mutex};
-use std::rc::{Rc, Weak};
-use std::cell::RefCell;
+use std::sync::{Mutex, Arc, RwLock};
 
 
 
@@ -12,7 +10,7 @@ lazy_static!{
 }
 
 pub struct FThreadManager{
-    threadsMap : HashMap<u32, Rc<RefCell<FPlatformRunnableThread>>>,
+    threadsMap : HashMap<u32, Arc<RwLock<FPlatformRunnableThread>>>,
 }
 
 unsafe impl Sync for FThreadManager{}
@@ -26,11 +24,11 @@ impl FThreadManager{
         }
     }
 
-    pub fn addThread(&mut self, threadId: u32, thread: Rc<RefCell<FPlatformRunnableThread>>){
+    pub fn addThread(&mut self, threadId: u32, thread: Arc<RwLock<FPlatformRunnableThread>>){
             self.threadsMap.insert(threadId, thread);
     }
 
-    pub fn removeThread(&mut self, thread: Rc<RefCell<FPlatformRunnableThread>>){
+    pub fn removeThread(&mut self, thread: Arc<RwLock<FPlatformRunnableThread>>){
        // self.threadsMap.remove(thread);
         let key: u32 = findKey(&self.threadsMap, thread);
         if key != 0{
@@ -47,16 +45,16 @@ impl FThreadManager{
 
     pub fn getThreadName(&mut self, threadId: &u32) -> Option<String>{
         match self.threadsMap.get(threadId){
-            Some(thread) => return Some(thread.borrow().getThreadName()),
+            Some(thread) => return Some(thread.read().unwrap().getThreadName()),
             None => None
         }
     }
 }
 
 
-pub fn findKey(map: &HashMap<u32, Rc<RefCell<FPlatformRunnableThread>>>, value: Rc<RefCell<FPlatformRunnableThread>>) -> u32 {
+pub fn findKey(map: &HashMap<u32, Arc<RwLock<FPlatformRunnableThread>>>, value: Arc<RwLock<FPlatformRunnableThread>>) -> u32 {
     for (key, val) in map{
-        if val == &value {
+        if Arc::ptr_eq(val, &value) {
             return key.clone()
         }
     }

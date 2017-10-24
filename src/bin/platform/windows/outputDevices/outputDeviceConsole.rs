@@ -67,9 +67,11 @@ fn writeConsoleData(consoleHandle: HANDLE, data: &String)
 
 pub struct FOutputDeviceConsoleWindows {
     name: String,
-    //consoleHandle: HANDLE,
-    consoleHandle: Box<i32>,
+    consoleHandle: HANDLE,
 }
+
+unsafe impl Sync for FOutputDeviceConsoleWindows{}
+unsafe impl Send for FOutputDeviceConsoleWindows{}
 
 
 impl FOutputDeviceConsoleWindows {
@@ -84,15 +86,15 @@ impl FOutputDeviceConsoleWindows {
                 let size = COORD { X: 160, Y: 4000 };
                 let consoleWidth = 160;
                 kernel32::SetConsoleScreenBufferSize(console, size);
-                let consoleHandle  = Box::from_raw(console as *mut i32);
+               
                 FOutputDeviceConsoleWindows {
                     name: String::from("FOutputDeviceConsolewindows"),
-                    consoleHandle: consoleHandle,
+                    consoleHandle: console,
                 }
             }else{
                 FOutputDeviceConsoleWindows {
                     name: String::from("FOutputDeviceConsolewindows"),
-                    consoleHandle: Box::new(0),
+                    consoleHandle: ptr::null_mut(),
                 }
             }
 
@@ -124,23 +126,23 @@ impl FOutputDevice for FOutputDeviceConsoleWindows {
     fn Serialize(&self, category: &String, level: &ELogVerbosity, data: &String, time: &u64) {
        // self.initConsole();
         let mut bNeedToResetColor = false;
-        let console = Box::into_raw(self.consoleHandle.clone()) as *mut c_void ;
+       
         if level == &ELogVerbosity::Error {
-            setColor(console, Flags::COLOR_RED);
+            setColor(self.consoleHandle, Flags::COLOR_RED);
             bNeedToResetColor = true;
         } else if level == &ELogVerbosity::Warning {
-            setColor(console, Flags::COLOR_YELLOW);
+            setColor(self.consoleHandle, Flags::COLOR_YELLOW);
             bNeedToResetColor = true;
         }
 
-        let result = outputDeviceHelper::FormatLogLine(category, level, data, time, ELogTimes::UTC);
+        let result = outputDeviceHelper::FormatLogLine(category, level, data, time, ELogTimes::Local);
 
         
-       writeConsoleData(console, &result);
+       writeConsoleData(self.consoleHandle, &result);
 
         if bNeedToResetColor {
             setColor(
-                console,
+                self.consoleHandle,
                 Flags::COLOR_WHITE,
             );
         }

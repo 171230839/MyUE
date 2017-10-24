@@ -1,5 +1,5 @@
 // use errors::{RueResult,RueError, RustUEError};
-use errors::{RustUEError, RustResult};
+use errors::{RustResult, RustUEError};
 use Flags;
 use platform::FPlatformProcess;
 use platformAffinity::FPlatformAffinity;
@@ -9,23 +9,19 @@ use projectManager::GIProjectManager;
 use std::fs::File;
 use platform::FPlatformMisc;
 use taskGraph::FTaskGraph;
-use std::sync::{Mutex};
+use std::sync::{Mutex, RwLock};
 
-//  lazy_static!{
-//     pub static ref GTaskGraph : FTaskGraph = Default::default();
-// }
-
-pub struct FEngineLoop{
-
+lazy_static!{
+    pub static ref GTaskGraph : RwLock<FTaskGraph> = RwLock::new(Default::default());
 }
 
+pub struct FEngineLoop {}
 
 
-impl FEngineLoop{
-    pub fn new() -> Self{
-        FEngineLoop{
 
-        }
+impl FEngineLoop {
+    pub fn new() -> Self {
+        FEngineLoop {}
     }
 
 
@@ -36,40 +32,37 @@ impl FEngineLoop{
 
         let GGameThreadId = FPlatformTLS::GetCurrentThreadId();
         let GIsGameThreadIdInitialized = true;
-       // FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::Mask.bits());
-       FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::Mask as u64);
+        // FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::Mask.bits());
+        FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::Mask as u64);
         FPlatformProcess::SetupGameThread();
-        if !GApp.lock().unwrap().HasGameName(){
-                LaunchUpdateMostRecentProjectFile();
+        if !GApp.lock().unwrap().HasGameName() {
+            LaunchUpdateMostRecentProjectFile();
         }
 
-        let mut taskGraph :FTaskGraph = Default::default();
+        let mut taskGraph: FTaskGraph = Default::default();
         let core = FPlatformMisc::NumberOfCores();
-        //GTaskGraph.Startup(core);
-        taskGraph.Startup(core);
+        GTaskGraph.write().unwrap().Startup(core);
+        //taskGraph.Startup(core);
         Ok(())
     }
 
 
-    pub fn init(&self) -> RustResult{
-
+    pub fn init(&self) -> RustResult {
         Ok(())
     }
 
-    pub fn tick(&self){
-       
-    }
+    pub fn tick(&self) {}
 
-    pub fn exit(&self) {
-
-    }
+    pub fn exit(&self) {}
 }
 
 
-fn LaunchUpdateMostRecentProjectFile(){
-    let autoLoadProjectFileName = GIProjectManager.lock().unwrap().GetAutoLoadProjectFileName();
+fn LaunchUpdateMostRecentProjectFile() {
+    let autoLoadProjectFileName = GIProjectManager
+        .lock()
+        .unwrap()
+        .GetAutoLoadProjectFileName();
     println!("llll : {}", autoLoadProjectFileName);
 
-  //  let mut file = File::create(autoLoadProjectFileName);
-    
+    //  let mut file = File::create(autoLoadProjectFileName);
 }

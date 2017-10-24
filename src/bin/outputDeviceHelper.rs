@@ -1,5 +1,5 @@
 use logger::{ELogVerbosity, ELogTimes};
-use chrono::offset::Utc;
+use chrono::offset::{Utc, Local};
 use chrono::DateTime;
 use std::time::SystemTime;
 
@@ -14,8 +14,13 @@ pub fn FormatLogLine(category : &String, level: &ELogVerbosity, data: &String, t
             ELogTimes::UTC =>{  
                 let system_time = SystemTime::now();
                 let datetime: DateTime<Utc> = system_time.into();
-                result = format!("{}", datetime.format("%d/%m/%Y %T"));
+                result = format!("{}", datetime.format("%d/%m/%Y %T  "));
             },
+            ELogTimes::Local =>{
+                 let system_time = SystemTime::now();
+                let datetime: DateTime<Local> = system_time.into();
+                result = format!("{}", datetime.format("%d/%m/%Y %T  "));
+            }
             NONE => (),
     }
   //println!("time: {:?}", time);

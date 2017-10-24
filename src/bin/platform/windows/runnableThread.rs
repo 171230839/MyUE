@@ -1,8 +1,8 @@
 
 use taskGraph::FTaskThread;
 use platformAffinity::{EThreadPriority, FPlatformAffinity};
-use std::rc::{Rc,Weak};
-use std::cell::RefCell;
+//use std::rc::{Rc,Weak};
+//use std::cell::RefCell;
 use super::event::{GManualResetFEvent ,INFINITE};
 use winapi::HANDLE;
 use kernel32;
@@ -13,7 +13,7 @@ use super::TLS::FPlatformTLS;
 use winapi::c_void;
 use logger::{ue_log, ELogVerbosity};
 use std::mem::transmute;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak, RwLock};
 use winapi;
 use exit_with_error;
 use errors::{RustUEError, RustResult};
@@ -21,7 +21,7 @@ use errors::{RustUEError, RustResult};
 
 #[derive(Debug)]
 pub struct FPlatformRunnableThread{
-    runnable: Weak<RefCell<FTaskThread>>,
+    runnable: Weak<RwLock<FTaskThread>>,
     threadAffinityMask: u64,
    // threadInitSyncEvent: Arc<Mutex<FEvent>>,
     thread: HANDLE,
@@ -30,6 +30,8 @@ pub struct FPlatformRunnableThread{
     threadName: String,
 }
 
+unsafe impl Sync for FPlatformRunnableThread{}
+unsafe impl Send for FPlatformRunnableThread{} 
 
 
 static STACK_SIZE_PARAM_IS_A_RESERVATION  : u32 =  0x00010000;
@@ -46,7 +48,7 @@ unsafe extern "system"  fn threadProc( pSelf: *mut c_void) -> u32{
 
 
 impl FPlatformRunnableThread{
-    pub fn new(task: Weak<RefCell<FTaskThread>>, name: &String, mask: u64) -> Self{
+    pub fn new(task: Weak<RwLock<FTaskThread>>, name: &String, mask: u64) -> Self{
 
         FPlatformRunnableThread{
             runnable : task,
@@ -101,14 +103,14 @@ impl FPlatformRunnableThread{
                 println!("ssssssssssssss");
                // match strong.borrow_mut().init(){
                //     Ok(()) => {
-                        strong.borrow_mut().init();
-                        println!("init()");
-                         GManualResetFEvent.Trigger();
+                        strong.read().unwrap().init();
+                        //println!("init()");
+                        GManualResetFEvent.Trigger();
                         //GManualResetFEvent.lock().unwrap().Trigger();
-                        println!("trigger");
+                      //  println!("trigger");
                         self.setTls();
-                        strong.borrow_mut().run()?;
-                        strong.borrow_mut().exit();
+                        strong.read().unwrap().run()?;
+                        strong.read().unwrap().exit();
                         self.freeTls();
              //       },
               //      Err(err) => {

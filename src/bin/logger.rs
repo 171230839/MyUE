@@ -34,6 +34,7 @@ pub enum ELogTimes{
     None,
     UTC,
     SinceGStartTime,
+    Local,
 }
 
 

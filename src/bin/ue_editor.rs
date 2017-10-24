@@ -8,8 +8,9 @@
 #![feature(i128_type)]
 #![feature(i128)]
 #![feature(raw)]
-//#![windows_subsystem = "windows"]
 #![feature(type_ascription)]
+//#![windows_subsystem = "windows"]
+#![feature(integer_atomics)]
 
 extern crate rustue;
 
@@ -39,6 +40,8 @@ extern crate kernel32;
 // #[cfg(target_os = "windows")]
 // extern crate dwmapi;
 extern crate chrono;
+extern crate rand;
+#[macro_use] extern crate rand_derive;
 
 #[macro_use] mod logger;
 use logger::{ue_log, ELogVerbosity};
@@ -68,6 +71,14 @@ mod threadManager;
 
 pub mod HAL;
 pub use self::HAL::*;
+
+pub mod Math;
+pub use self::Math::*;
+
+pub mod UObject;
+pub use self::UObject::*;
+
+pub mod stat2;
 
 use std::sync::Mutex;
 pub use errors::*;
@@ -178,6 +189,8 @@ lazy_static!{
      pub static ref GApp : Mutex<FApp> = Mutex::new(Default::default()); 
  }
 
+
+
 fn main(){
    lazy_static::initialize(&GStartTime);
 
@@ -201,7 +214,7 @@ fn main(){
                
         let outputDevices = platform::outputDevices::FOutputDevices::new();
         outputDevices.SetupOutputDevices();
-      
+       // UE_LOG!(Init, Error, "TTTTTTTTTTT");
 
         let flags: Flags = parseCmdArgs(&mut args);
 

@@ -4,8 +4,8 @@ use std::cmp;
 use platform::FPlatformTLS;
 
 use logger::{ue_log, ELogVerbosity};
-use std::rc::{Rc,Weak};
-use std::cell::RefCell;
+//use std::rc::{Rc,Weak};
+//use std::cell::RefCell;
 use platformAffinity::{FPlatformAffinity, EThreadPriority};
 use platform::FPlatformRunnableThread;
 use std::ptr::{null, null_mut};
@@ -14,16 +14,20 @@ use errors::{RustUEError, RustResult};
 use winapi::c_void;
 use FThreadSafeCounter;
 use platform::{INFINITE};
-use std::sync::{Mutex, Arc};
+use std::sync::{Mutex, Arc, RwLock, Weak};
+use eventloop::{GTaskGraph};
+use std::thread;
+use FRandomStream;
+use std::time::Duration;
+use std::collections::LinkedList;
 
-
-enum Thread{
+pub enum Thread{
     max_threads = 24,
     max_thread_priorites = 3,
 }
 
 #[derive(Debug, Clone)] 
-enum ENamedThreads{
+pub enum ENamedThreads{
     UnusedAnchor = -1,
     RHIThread = 0,
     AudioThread,
@@ -157,20 +161,20 @@ enum FTaskThreadType{
 }
 
 impl FTaskThreadType{
-    pub fn run(&mut self){
+    pub fn run(&self){
         match self{
-             &mut FTaskThreadType::FNamedTaskThread(ref mut namedThread) =>{
+             &FTaskThreadType::FNamedTaskThread(ref  namedThread) =>{
              },
-             &mut FTaskThreadType::FTaskThreadAnyThread(ref mut task) =>{
+             &FTaskThreadType::FTaskThreadAnyThread(ref  task) =>{
                  task.queue.quitWhenIdle.reset();
                 while task.queue.quitWhenIdle.get() == 0 {
-                   // self.processTasks();
+                    self.processTasks();
                 }
              },
         }
     }
 
-    pub fn processTasks(&mut self){
+    pub fn processTasks(&self){
 
     }
 }
@@ -180,7 +184,7 @@ pub struct FTaskThread{
     taskType : FTaskThreadType,
     threadId: ENamedThreads,
     perThreadIDTLSSlot: u32,
-    pub ownerWorker : Option<Weak<RefCell<FWorkerThread>>>,
+    pub ownerWorker : Option<Weak<RwLock<FWorkerThread>>>,
 
 }
 
@@ -195,16 +199,18 @@ impl FTaskThread{
         }
     }
 
-    pub fn initializeForCurrentThread(&mut self) {
+    pub fn initializeForCurrentThread(&self) {
          match self.ownerWorker.clone(){
             Some(weak) => {
                 match weak.upgrade() {
                     Some(strong) => {
                         unsafe{
                             println!("init");
-                            let temp = (*Rc::into_raw(strong)).as_ptr() as *mut c_void;
-                            FPlatformTLS::SetTlsValue(self.perThreadIDTLSSlot, temp);
-                        
+                            unsafe{
+                            let mut tempL : *mut RwLock<FWorkerThread> = Arc::into_raw(strong) as *mut RwLock<FWorkerThread>;
+                            let mut temp : &mut FWorkerThread = RwLock::get_mut(&mut *tempL).unwrap();
+                            FPlatformTLS::SetTlsValue(self.perThreadIDTLSSlot, temp as *mut FWorkerThread as *mut c_void);
+                            }
                         }
                         
                     },
@@ -219,50 +225,66 @@ impl FTaskThread{
        
     }
 
-    pub fn init(&mut self){
+    pub fn init(&self){
         self.initializeForCurrentThread()
     }
 
-    pub fn run(&mut self) ->RustResult{
-        //self.processTasksUntilQuit();
-        self.taskType.run();
+    pub fn run(&self) ->RustResult{
+        self.processTasksUntilQuit();
+        //self.taskType.run();
         Ok(())
     }
 
-    pub fn exit(&mut self) {
+    pub fn exit(&self) {
 
     }
 
-    pub fn processTasksUntilQuit(&mut self){
-        // match self.taskType.clone(){
-        //     FTaskThreadType::FNamedTaskThread(ref data) => {
+    pub fn processTasksUntilQuit(&self){
+         match self.taskType.clone(){
+            FTaskThreadType::FNamedTaskThread(ref data) => {
 
-        //     },
-        //     FTaskThreadType::FTaskThreadAnyThread(data) => {
-        //         // if priorityIndex != (ENamedThreadsBit::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift){
+            },
+            FTaskThreadType::FTaskThreadAnyThread(task) => {
+                // if priorityIndex != (ENamedThreadsBit::BackgroundThreadPriority >> ENamedThreads::ThreadPriorityShift){
 
-        //         // } 
-        //         let mut t : Mutex<TaskData> = data.clone();
-        //         t.queue.quitWhenIdle.reset();
-        //     },
+                // } 
+              
+                task.queue.quitWhenIdle.reset();
+                while task.queue.quitWhenIdle.get() == 0 {
+                    self.processTasks(&task.queue);
+                }
+            },
 
-        // }
+        }
+    }
+
+    pub fn processTasks(&self, queue: &FThreadTaskQueue) {
+       // let stallStatId = TStatId::new();
+        let bCountAsStall: bool = true;
+       // assert!(queue.recursionGuard == 1);
+        while true{
+            let task = GTaskGraph.write().unwrap().findWork(self.threadId.clone());
+            if task.is_none(){
+                //stall(statllStatId, bCountAsStall);
+            }
+        }
+       // assert!(--queue.recursionGuard == 0);
     }
 }
 #[derive(Debug)]
 pub struct FRunnableThread{
-    runnableThread: Option<Rc<RefCell<FPlatformRunnableThread>>>,
+    runnableThread: Option<Arc<RwLock<FPlatformRunnableThread>>>,
 }
 
 impl FRunnableThread{
-    pub fn new(task: Weak<RefCell<FTaskThread>>, name: &String, stackSize: u64, threadPri:&EThreadPriority, mask: u64) ->Self{
-        let mut thread = Rc::new(RefCell::new(FPlatformRunnableThread::new(task, name, mask)));
-        if thread.borrow_mut().createInternel(stackSize , threadPri ) == false{
+    pub fn new(task: Weak<RwLock<FTaskThread>>, name: &String, stackSize: u64, threadPri:&EThreadPriority, mask: u64) ->Self{
+        let mut thread = Arc::new(RwLock::new(FPlatformRunnableThread::new(task, name, mask)));
+        if thread.write().unwrap().createInternel(stackSize , threadPri ) == false{
             FRunnableThread{
                 runnableThread :   None ,
             }
         }else {
-            GFThreadManager.lock().unwrap().addThread(thread.borrow_mut().getThreadId(), thread.clone());
+            GFThreadManager.lock().unwrap().addThread(thread.read().unwrap().getThreadId(), thread.clone());
              FRunnableThread{
                 runnableThread :   Some(thread) ,
             }
@@ -273,13 +295,13 @@ impl FRunnableThread{
 
 #[derive(Debug)]
 pub struct FWorkerThread{
-    pub taskGraphWorker : Rc<RefCell<FTaskThread>>,
+    pub taskGraphWorker : Arc<RwLock<FTaskThread>>,
     pub runnableThread: Option<FRunnableThread>,
     pub bAttached: bool,
 }
 
 impl FWorkerThread{
-    pub fn new( task :  Rc<RefCell<FTaskThread>>) -> Self{
+    pub fn new( task :  Arc<RwLock<FTaskThread>>) -> Self{
         FWorkerThread{
             taskGraphWorker: task,
             bAttached: false,
@@ -288,21 +310,30 @@ impl FWorkerThread{
     }
 }
 
+unsafe impl Sync for FWorkerThread{}
+unsafe impl Send for FWorkerThread{}
 
 
 #[derive(Default)]
 pub struct FTaskGraph{
     
-    workerThreads: Vec<Rc<RefCell<FWorkerThread>>>,
+    workerThreads: Vec<Arc<RwLock<FWorkerThread>>>,
     numThreads: i32,
     numNamedThreads: i32,
     numTaskThreadSets : i32,
     numTaskThreadsPerSet: i32,
     
     lastExternalThread: ENamedThreads,
+
+    IncomingAnyThreadTasks: [LinkedList<Box<FGraphTask>>; Thread::max_thread_priorites as usize],
+    IncomingAnyThreadTasksHiPri: [LinkedList<Box<FGraphTask>>; Thread::max_thread_priorites as usize],
+    SortedAnyThreadTasks: [LinkedList<Box<FGraphTask>>; Thread::max_thread_priorites as usize],
+    SortedAnyThreadTasksHiPri:  [LinkedList<Box<FGraphTask>>; Thread::max_thread_priorites as usize],
 }
 
 impl FTaskGraph{
+
+
     pub fn Startup(&mut self, numThreads: i32){
 
         let mut bCreatedHiPriorityThreads = ENamedThreads::bHasHighPriorityThreads();
@@ -394,16 +425,16 @@ impl FTaskGraph{
             let bAnyTaskThread = threadIndex >= self.numNamedThreads;
             if bAnyTaskThread{
                 let priority = self.ThreadIndexToPriorityIndex(threadIndex);
-                let rcTask = Rc::new(RefCell::new(FTaskThread::new(FTaskThreadType::FTaskThreadAnyThread(TaskData::new(priority)), ENamedThreads::from(threadIndex), perThreadIDTLSSlot)));
+                let rcTask = Arc::new(RwLock::new(FTaskThread::new(FTaskThreadType::FTaskThreadAnyThread(TaskData::new(priority)), ENamedThreads::from(threadIndex), perThreadIDTLSSlot)));
                 let mut worker :FWorkerThread = FWorkerThread::new(rcTask.clone());
-                let mut rc = Rc::new(RefCell::new(worker));
-                rcTask.borrow_mut().ownerWorker  = Some(Rc::downgrade(&rc));
+                let mut rc = Arc::new(RwLock::new(worker));
+                rcTask.write().unwrap().ownerWorker  = Some(Arc::downgrade(&rc));
                 self.workerThreads.push(rc);
             }else{
-               let rcTask = Rc::new(RefCell::new(FTaskThread::new(FTaskThreadType::FNamedTaskThread(NamedTaskData::new()), ENamedThreads::from(threadIndex), perThreadIDTLSSlot)));
+               let rcTask = Arc::new(RwLock::new(FTaskThread::new(FTaskThreadType::FNamedTaskThread(NamedTaskData::new()), ENamedThreads::from(threadIndex), perThreadIDTLSSlot)));
                 let mut worker :FWorkerThread = FWorkerThread::new(rcTask.clone());
-                let mut rc = Rc::new(RefCell::new(worker));
-                rcTask.borrow_mut().ownerWorker  = Some(Rc::downgrade(&rc));
+                let mut rc = Arc::new(RwLock::new(worker));
+                rcTask.write().unwrap().ownerWorker  = Some(Arc::downgrade(&rc));
                 self.workerThreads.push(rc);
             }
          }
@@ -432,9 +463,9 @@ impl FTaskGraph{
            
 
                  // No1  style ---------
-                    let worker : &mut FWorkerThread = &mut workerRc.borrow_mut();
-                        let rcTask : Rc<RefCell<FTaskThread>> = worker.taskGraphWorker.clone();
-                        worker.runnableThread = Some(FRunnableThread::new(Rc::downgrade(&rcTask), &name, stackSize, &threadPri, FPlatformAffinity::Mask as u64));
+                    let worker : &mut FWorkerThread = &mut workerRc.write().unwrap();
+                        let rcTask : Arc<RwLock<FTaskThread>> = worker.taskGraphWorker.clone();
+                        worker.runnableThread = Some(FRunnableThread::new(Arc::downgrade(&rcTask), &name, stackSize, &threadPri, FPlatformAffinity::Mask as u64));
                         worker.bAttached = true; 
                 //  No2 style -------------
                     // unsafe{
@@ -471,4 +502,99 @@ impl FTaskGraph{
         result
     }
 
+    pub fn findWork(&mut self, threadId: ENamedThreads) -> Option<Box<FGraphTask>> {
+        let localNumWorkingThread = self.getNumWorkerThreads();
+        let threadIdInt = threadId as i32;
+        let myIndex = (threadIdInt - self.numNamedThreads) % self.numTaskThreadsPerSet;
+        let priority = (threadIdInt - self.numNamedThreads) / self.numTaskThreadsPerSet;
+        GChaoMode.delay();
+        let mut task = self.SortedAnyThreadTasksHiPri[priority as usize].pop_front();
+        if task.is_some(){
+            return task
+        }
+        if !self.IncomingAnyThreadTasksHiPri[priority as usize].is_empty(){
+
+        }
+        task = self.SortedAnyThreadTasks[priority as usize].pop_front();
+        if task.is_some(){
+            return task
+        }
+        
+       
+        None
+    }
+
+    pub fn getNumWorkerThreads(&self) -> i32{
+        (self.numThreads - self.numNamedThreads) / self.numTaskThreadSets
+    }
+}
+
+lazy_static!{
+    pub static ref GChaoMode: FChaosMode = FChaosMode::new();
+}
+
+const numSample : i32 = 45771;
+pub struct FChaosMode{
+    
+    current: FThreadSafeCounter,
+    delayTimes: Vec<f32>,
+    enabled: bool,
+}
+
+impl FChaosMode{
+    pub fn new() -> Self{
+        let mut delayVec : Vec<f32> = Vec::new();
+        let random = FRandomStream::new();
+        for index in 0..numSample{
+            delayVec.push(random.getFraction());
+        }
+        for cube in 0..2{
+            for index in 0..numSample{
+                delayVec[index as usize] *= random.getFraction();
+            }
+        }
+        for index in 0..numSample{
+            delayVec[index as usize] *= 0.00001;
+        }
+
+        for zeros in 0..numSample/20 {
+            let index = random.randHelper(numSample);
+            delayVec[index as usize] = 0.0;
+        }
+
+        for zeros in 0..numSample/100{
+            let index = random.randHelper(numSample);
+            delayVec[index as usize] = 0.00005;
+        }
+
+        FChaosMode{
+            current: FThreadSafeCounter::new(),
+            delayTimes:delayVec,
+            enabled: false,
+        }
+    }
+
+    pub fn delay(&self) {
+        if self.enabled{
+            let mut myIndex = self.current.increment();
+            myIndex %= numSample;
+            let delayS = self.delayTimes[myIndex as usize];
+            if delayS > 0.0{
+                    thread::sleep(Duration::new(delayS as u64, 0));
+            }
+        }
+    }
+}
+
+
+pub struct FGraphTask{
+
+}
+
+impl FGraphTask{
+    pub fn new()->Self{
+        FGraphTask{
+            
+        }
+    }
 }

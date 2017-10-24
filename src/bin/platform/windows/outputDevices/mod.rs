@@ -69,12 +69,14 @@ impl FOutputDevices{
     }
 
     pub fn SetupOutputDevices(&self){
-        
+        // let console = Arc::new(FOutputDeviceConsoleWindows::new());
+       //  GLog.lock().unwrap().AddOutputDevice(console.clone());
+
        // GLog.lock().unwrap().AddOutputDevice(self.consoleLog.clone());
        // GLog.lock().unwrap().AddOutputDevice(self.log.clone());
          //    if misc::IsDebuggerPresent(){
       //  if ::IsDebugMode(){
-          let debug = Arc::new(FOutputDeviceDebug::new());
+       let debug = Arc::new(FOutputDeviceDebug::new());
             GLog.lock().unwrap().AddOutputDevice(debug.clone());
        // }
     }
